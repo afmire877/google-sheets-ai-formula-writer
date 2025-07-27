@@ -4,7 +4,7 @@ const OPENAI_API_KEY = PropertiesService.getScriptProperties().getProperty('OPEN
 
 function callOpenAIForFormula(promptText) {
   const apiKey = OPENAI_API_KEY;
-  
+
   if (!apiKey) {
     throw new Error("OpenAI API key not found. Please set it using PropertiesService.");
   }
@@ -49,7 +49,7 @@ Common Google Sheets functions:
   });
 
   const result = JSON.parse(response.getContentText());
-  
+
   if (response.getResponseCode() !== 200) {
     throw new Error(`OpenAI API error: ${result.error?.message || 'Unknown error'}`);
   }
@@ -67,7 +67,7 @@ function showPromptModal() {
 
 function onOpen() {
   SpreadsheetApp.getUi()
-    .createMenu('My Helpers')
+    .createMenu('Sheet copilot')
     .addItem('Log Selected Range', 'logSelectedRange')
     .addItem('Write Summary Row', 'writeSummaryRow')
     .addSeparator()
@@ -88,25 +88,25 @@ function debugPreviewContext() {
     SpreadsheetApp.getUi().alert('Please select a range of data first');
     return;
   }
-  
+
   const analysis = analyzeSelectedData();
   const preview = previewFormulaGeneration("Sum all values in the Amount column");
-  
+
   let message = `DEBUG INFO:\n\n`;
   message += `Selected Range: ${analysis.rangeAddress}\n`;
   message += `Rows: ${analysis.rowCount}, Columns: ${analysis.colCount}\n`;
   message += `Has Headers: ${analysis.hasHeaders}\n\n`;
-  
+
   if (analysis.columns) {
     message += `Columns:\n`;
     analysis.columns.forEach((col, i) => {
       message += `  ${String.fromCharCode(65 + i)}: "${col.header}" (${col.dataType})\n`;
     });
   }
-  
+
   message += `\nTarget Cell: ${preview.targetCell}\n`;
   message += `\nThis info will be sent to AI when generating formulas.`;
-  
+
   SpreadsheetApp.getUi().alert('Data Context Preview', message, SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
