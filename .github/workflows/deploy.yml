@@ -1,0 +1,38 @@
+name: Deploy to Google Apps Script
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: |
+        npm install -g @google/clasp
+        
+    - name: Create .clasprc.json
+      run: |
+        echo '{"token":{"access_token":"${{ secrets.CLASP_ACCESS_TOKEN }}","refresh_token":"${{ secrets.CLASP_REFRESH_TOKEN }}","scope":"https://www.googleapis.com/auth/script.projects https://www.googleapis.com/auth/script.webapp.deploy https://www.googleapis.com/auth/logging.read https://www.googleapis.com/auth/service.management https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/script.deployments https://www.googleapis.com/auth/drive.metadata.readonly https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets","token_type":"Bearer","expiry_date":null}}' > ~/.clasprc.json
+        
+    - name: Deploy to Google Apps Script
+      run: |
+        clasp push
+        
+    - name: Deploy new version (on main branch only)
+      if: github.ref == 'refs/heads/main'
+      run: |
+        clasp deploy --description "Auto-deployed from commit ${{ github.sha }}"
