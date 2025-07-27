@@ -77,6 +77,53 @@ function onOpen() {
     .addToUi();
 }
 
+// Add-on specific functions
+function onInstall(e) {
+  onOpen(e);
+}
+
+function onHomepage(e) {
+  return createCard('Select data and describe the formula you need');
+}
+
+function onSelectionChange(e) {
+  if (!e || !e.commonEventObject) return;
+  
+  try {
+    const range = SpreadsheetApp.getActiveRange();
+    if (range && range.getNumRows() > 0 && range.getNumColumns() > 0) {
+      const analysis = analyzeSelectedData();
+      const message = `Selected: ${analysis.rangeAddress} (${analysis.rowCount}×${analysis.colCount})`;
+      return createCard(message, true);
+    }
+  } catch (error) {
+    return createCard('Select data to get started');
+  }
+  
+  return createCard('Select data to get started');
+}
+
+function createCard(message, hasData = false) {
+  const card = CardService.newCardBuilder()
+    .setHeader(CardService.newCardHeader()
+      .setTitle('AI Formula Writer')
+      .setSubtitle('Generate formulas from natural language'))
+    .addSection(CardService.newCardSection()
+      .addWidget(CardService.newTextParagraph()
+        .setText(message)));
+
+  if (hasData) {
+    card.addSection(CardService.newCardSection()
+      .addWidget(CardService.newButtonSet()
+        .addButton(CardService.newTextButton()
+          .setText('🧠 Create Formula')
+          .setOnClickAction(CardService.newAction()
+            .setFunctionName('showPromptModal')))));
+  }
+
+  return card.build();
+}
+
 function logSelectedRange() {
   const values = getSelectedValues();
   Logger.log(values);
