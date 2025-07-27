@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <base target="_top">
+  <style>
+    body {
+      font-family: 'Google Sans', Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f8f9fa;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #1a73e8;
+    }
+
+    .data-context {
+      background-color: #e8f0fe;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 16px;
+      border-left: 4px solid #1a73e8;
+    }
+
+    .context-title {
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #1565c0;
+    }
+
+    .context-info {
+      font-size: 12px;
+      color: #5f6368;
+      margin: 2px 0;
+    }
+
+    .suggestions {
+      margin-bottom: 16px;
+    }
+
+    .suggestions-title {
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #202124;
+    }
+
+    .suggestion-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .suggestion-btn {
+      background-color: #f1f3f4;
+      border: 1px solid #dadce0;
+      border-radius: 16px;
+      padding: 6px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .suggestion-btn:hover {
+      background-color: #e8eaed;
+      border-color: #1a73e8;
+    }
+
+    .prompt-section {
+      margin-bottom: 16px;
+    }
+
+    .prompt-label {
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #202124;
+    }
+
+    #prompt {
+      width: 100%;
+      min-height: 80px;
+      border: 1px solid #dadce0;
+      border-radius: 6px;
+      padding: 8px;
+      font-family: inherit;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+
+    #prompt:focus {
+      outline: none;
+      border-color: #1a73e8;
+      box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    button {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid #dadce0;
+      background-color: white;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+
+    .primary-btn {
+      background-color: #1a73e8;
+      color: white;
+      border-color: #1a73e8;
+    }
+
+    .primary-btn:hover {
+      background-color: #1557b0;
+    }
+
+    .primary-btn:disabled {
+      background-color: #f1f3f4;
+      color: #9aa0a6;
+      border-color: #dadce0;
+      cursor: not-allowed;
+    }
+
+    button:hover:not(:disabled) {
+      background-color: #f1f3f4;
+    }
+
+    .loading {
+      text-align: center;
+      color: #5f6368;
+      margin: 16px 0;
+    }
+
+    .error {
+      background-color: #fce8e6;
+      color: #d93025;
+      padding: 8px;
+      border-radius: 4px;
+      margin: 8px 0;
+      font-size: 12px;
+    }
+
+    .success {
+      background-color: #e6f4ea;
+      color: #137333;
+      padding: 8px;
+      border-radius: 4px;
+      margin: 8px 0;
+      font-size: 12px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>🧠 AI Formula Assistant</h2>
+    </div>
+
+    <div id="dataContext" class="data-context" style="display: none;">
+      <div class="context-title">📊 Selected Data</div>
+      <div id="contextInfo"></div>
+    </div>
+
+    <div class="suggestions">
+      <div class="suggestions-title">💡 Quick Suggestions</div>
+      <div class="suggestion-buttons">
+        <button class="suggestion-btn" onclick="fillPrompt('Sum all values in column ')">💰 Sum Values</button>
+        <button class="suggestion-btn" onclick="fillPrompt('Count items where ')">🔢 Count Items</button>
+        <button class="suggestion-btn" onclick="fillPrompt('Find the value where ')">🔍 Lookup Value</button>
+        <button class="suggestion-btn" onclick="fillPrompt('Calculate average of ')">📈 Average</button>
+        <button class="suggestion-btn" onclick="fillPrompt('Rank values from highest to lowest')">🏆 Rank Data</button>
+        <button class="suggestion-btn" onclick="fillPrompt('Show unique values in ')">✨ Unique Values</button>
+      </div>
+    </div>
+
+    <div class="prompt-section">
+      <div class="prompt-label">✍️ Describe what formula you need:</div>
+      <textarea id="prompt"
+        placeholder="Example: Sum all amounts where category is 'Food'&#10;Example: Find the price for product 'Widget A'&#10;Example: Count how many sales are greater than $100"></textarea>
+    </div>
+
+    <div id="message"></div>
+
+    <div class="action-buttons">
+      <button onclick="analyzeData()">🔍 Analyze Data</button>
+      <button id="submitBtn" class="primary-btn" onclick="generateFormula()">🚀 Generate Formula</button>
+    </div>
+  </div>
+
+  <script>
+    // Load data context when modal opens
+    window.onload = function () {
+      analyzeData();
+    };
+
+    function analyzeData() {
+      showMessage('Analyzing your selected data...', 'loading');
+
+      google.script.run
+        .withSuccessHandler(showDataContext)
+        .withFailureHandler(showError)
+        .analyzeSelectedData();
+    }
+
+    function showDataContext(analysis) {
+      const contextDiv = document.getElementById('dataContext');
+      const contextInfo = document.getElementById('contextInfo');
+
+      if (analysis?.error) {
+        contextInfo.innerHTML = `<div class="error">${analysis.error}</div>`;
+      } else {
+        contextInfo.innerHTML = `
+            <div class="context-info">📍 Range: ${analysis.rangeAddress}</div>
+            <div class="context-info">📊 Size: ${analysis.rowCount} rows × ${analysis.colCount} columns</div>
+            <div class="context-info">📝 Headers: ${analysis.hasHeaders ? 'Detected' : 'Not detected'}</div>
+            <div class="context-info">🏷️ Column Types: ${analysis.columns.map(col =>
+          `${col.header || 'Col ' + (col.index + 1)} (${col.dataType})`
+        ).join(', ')}</div>
+          `;
+      }
+
+      contextDiv.style.display = 'block';
+      clearMessage();
+    }
+
+    function fillPrompt(suggestion) {
+      document.getElementById('prompt').value = suggestion;
+      document.getElementById('prompt').focus();
+    }
+
+    function generateFormula() {
+      const promptText = document.getElementById('prompt').value.trim();
+
+      if (!promptText) {
+        showMessage('Please describe what formula you need.', 'error');
+        return;
+      }
+
+      showMessage('🧠 AI is generating your formula...', 'loading');
+      document.getElementById('submitBtn').disabled = true;
+
+      google.script.run
+        .withSuccessHandler(handleFormulaResult)
+        .withFailureHandler(showError)
+        .generateAIFormula(promptText);
+    }
+
+    function handleFormulaResult(result) {
+      document.getElementById('submitBtn').disabled = false;
+
+      if (result.success) {
+        showMessage(`✅ Formula generated: ${result.formula}`, 'success');
+        if (result.inserted) {
+          showMessage(`✅ Formula inserted into ${result.cellAddress}`, 'success');
+          setTimeout(() => {
+            google.script.host.close();
+          }, 2000);
+        }
+      } else {
+        showMessage(`❌ ${result.error || 'Failed to generate formula'}`, 'error');
+      }
+    }
+
+    function showMessage(text, type = '') {
+      const messageDiv = document.getElementById('message');
+      messageDiv.className = type;
+      messageDiv.innerHTML = type === 'loading' ?
+        `<div class="loading">${text}</div>` :
+        `<div class="${type}">${text}</div>`;
+    }
+
+    function clearMessage() {
+      document.getElementById('message').innerHTML = '';
+    }
+
+    function showError(error) {
+      document.getElementById('submitBtn').disabled = false;
+      showMessage(`❌ Error: ${error.message || error}`, 'error');
+    }
+
+    // Auto-resize textarea
+    document.getElementById('prompt').addEventListener('input', function () {
+      this.style.height = 'auto';
+      this.style.height = Math.max(80, this.scrollHeight) + 'px';
+    });
+  </script>
+</body>
+
+</html>
