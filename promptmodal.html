@@ -181,19 +181,19 @@
     <div class="suggestions">
       <div class="suggestions-title">💡 Quick Suggestions</div>
       <div class="suggestion-buttons">
-        <button class="suggestion-btn" onclick="fillPrompt('Sum all values in column ')">💰 Sum Values</button>
-        <button class="suggestion-btn" onclick="fillPrompt('Count items where ')">🔢 Count Items</button>
-        <button class="suggestion-btn" onclick="fillPrompt('Find the value where ')">🔍 Lookup Value</button>
-        <button class="suggestion-btn" onclick="fillPrompt('Calculate average of ')">📈 Average</button>
-        <button class="suggestion-btn" onclick="fillPrompt('Rank values from highest to lowest')">🏆 Rank Data</button>
-        <button class="suggestion-btn" onclick="fillPrompt('Show unique values in ')">✨ Unique Values</button>
+        <button class="suggestion-btn" onclick="fillPrompt('Sum all values in the Amount column')">💰 Sum Values</button>
+        <button class="suggestion-btn" onclick="fillPrompt('Count rows where Status equals \'Complete\'')">🔢 Count Conditionally</button>
+        <button class="suggestion-btn" onclick="fillPrompt('Find the price for product name \'Widget A\'')">🔍 Lookup Value</button>
+        <button class="suggestion-btn" onclick="fillPrompt('Calculate average of all numeric values')">📈 Average</button>
+        <button class="suggestion-btn" onclick="fillPrompt('Sum values where Category is \'Food\' and Amount > 50')">🎯 Complex Sum</button>
+        <button class="suggestion-btn" onclick="fillPrompt('Show maximum value in the selected range')">📊 Max/Min</button>
       </div>
     </div>
 
     <div class="prompt-section">
       <div class="prompt-label">✍️ Describe what formula you need:</div>
       <textarea id="prompt"
-        placeholder="Example: Sum all amounts where category is 'Food'&#10;Example: Find the price for product 'Widget A'&#10;Example: Count how many sales are greater than $100"></textarea>
+        placeholder="Examples:&#10;• Sum all amounts where category is 'Food'&#10;• Find the price for product 'Widget A'&#10;• Count how many sales are greater than $100&#10;• Calculate average score by department&#10;• Get the highest value in the selected range&#10;• Sum values only if date is in current month"></textarea>
     </div>
 
     <div id="message"></div>

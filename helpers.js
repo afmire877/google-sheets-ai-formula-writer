@@ -98,52 +98,47 @@ function generateAIFormula(promptText) {
     // Create enhanced prompt with data context
     const contextualPrompt = createContextualPrompt(promptText, analysis, values);
     
-    // Call OpenAI with the enhanced prompt and tools
-    const result = callOpenAIWithFunction(contextualPrompt);
+    // Call OpenAI with the enhanced prompt
+    const response = callOpenAIForFormula(contextualPrompt);
     
-    if (result && result.choices && result.choices[0]) {
-      const response = result.choices[0].message.content;
+    if (!response) {
+      return { success: false, error: "No response from AI" };
+    }
+    
+    // Try to extract formula from response
+    const formula = extractFormulaFromResponse(response);
+    
+    if (formula) {
+      // Find appropriate cell to insert formula
+      const targetCell = findTargetCell(range);
       
-      // Try to extract formula from response
-      const formula = extractFormulaFromResponse(response);
-      
-      if (formula) {
-        // Find appropriate cell to insert formula
-        const targetCell = findTargetCell(range);
+      try {
+        const sheet = SpreadsheetApp.getActiveSheet();
+        const cell = sheet.getRange(targetCell);
+        cell.setFormula(formula);
         
-        try {
-          const sheet = SpreadsheetApp.getActiveSheet();
-          const cell = sheet.getRange(targetCell);
-          cell.setFormula(formula);
-          
-          return {
-            success: true,
-            formula: formula,
-            cellAddress: targetCell,
-            inserted: true,
-            explanation: response
-          };
-        } catch (insertError) {
-          return {
-            success: true,
-            formula: formula,
-            cellAddress: targetCell,
-            inserted: false,
-            error: "Formula generated but insertion failed: " + insertError.toString(),
-            explanation: response
-          };
-        }
-      } else {
         return {
-          success: false,
-          error: "Could not extract formula from AI response",
-          response: response
+          success: true,
+          formula: formula,
+          cellAddress: targetCell,
+          inserted: true,
+          explanation: response
+        };
+      } catch (insertError) {
+        return {
+          success: true,
+          formula: formula,
+          cellAddress: targetCell,
+          inserted: false,
+          error: "Formula generated but insertion failed: " + insertError.toString(),
+          explanation: response
         };
       }
     } else {
       return {
         success: false,
-        error: "No response from AI"
+        error: "Could not extract formula from AI response",
+        response: response
       };
     }
   } catch (error) {
@@ -155,57 +150,145 @@ function generateAIFormula(promptText) {
 }
 
 function createContextualPrompt(userRequest, analysis, values) {
-  let prompt = `You are a Google Sheets formula expert. Generate a formula based on this request:
-
-`;
-  prompt += `USER REQUEST: ${userRequest}\n\n`;
-  prompt += `DATA CONTEXT:\n`;
-  prompt += `- Range: ${analysis.rangeAddress}\n`;
-  prompt += `- Size: ${analysis.rowCount} rows × ${analysis.colCount} columns\n`;
-  prompt += `- Headers: ${analysis.hasHeaders ? 'Yes' : 'No'}\n`;
+  let prompt = `USER REQUEST: ${userRequest}\n\n`;
   
-  if (analysis.columns) {
-    prompt += `- Columns:\n`;
-    analysis.columns.forEach(col => {
-      prompt += `  ${col.index + 1}. "${col.header}" (${col.dataType})\n`;
+  // Add data context
+  prompt += `SELECTED DATA CONTEXT:\n`;
+  prompt += `Range: ${analysis.rangeAddress}\n`;
+  prompt += `Size: ${analysis.rowCount} rows × ${analysis.colCount} columns\n`;
+  
+  // Add column information with letters
+  if (analysis.columns && analysis.columns.length > 0) {
+    prompt += `Columns:\n`;
+    analysis.columns.forEach((col, index) => {
+      const columnLetter = String.fromCharCode(65 + index); // A, B, C, etc.
+      prompt += `  ${columnLetter}: "${col.header}" (${col.dataType})\n`;
     });
   }
   
-  prompt += `\nSAMPLE DATA (first 3 rows):\n`;
-  values.slice(0, 3).forEach((row, i) => {
-    prompt += `Row ${i + 1}: ${row.join(' | ')}\n`;
-  });
+  // Add sample data with proper formatting
+  prompt += `\nSAMPLE DATA:\n`;
+  if (analysis.hasHeaders && values.length > 0) {
+    // Show headers
+    const headers = values[0].map((header, i) => `${String.fromCharCode(65 + i)}:${header}`);
+    prompt += `Headers: ${headers.join(', ')}\n`;
+    
+    // Show data rows
+    values.slice(1, Math.min(4, values.length)).forEach((row, i) => {
+      prompt += `Row ${i + 2}: ${row.join(' | ')}\n`;
+    });
+  } else {
+    values.slice(0, 3).forEach((row, i) => {
+      prompt += `Row ${i + 1}: ${row.join(' | ')}\n`;
+    });
+  }
   
-  prompt += `\nPlease provide:\n`;
-  prompt += `1. The exact Google Sheets formula (starting with =)\n`;
-  prompt += `2. A brief explanation of what it does\n`;
-  prompt += `\nFormula:`;
+  // Add specific instructions
+  prompt += `\nINSTRUCTIONS:\n`;
+  prompt += `- Generate a formula that works with the selected range ${analysis.rangeAddress}\n`;
+  prompt += `- Use proper column references (A, B, C, etc.)\n`;
+  prompt += `- Consider the data types when choosing functions\n`;
+  prompt += `- Return only the formula starting with =\n`;
   
   return prompt;
 }
 
 function extractFormulaFromResponse(response) {
-  // Look for formula patterns in the response
-  const formulaRegex = /=([^\n]+)/g;
-  const matches = response.match(formulaRegex);
+  // Multiple regex patterns to catch different formula formats
+  const patterns = [
+    /^=.+$/m,                    // Formula at start of line
+    /(?:^|\n)=.+$/gm,           // Formula after newline
+    /(?:Formula|formula):\s*=.+$/gm,  // "Formula: =..." format
+    /```\s*=.+\s*```/gm,        // Code blocks with formulas
+    /`=.+`/gm                   // Inline code with formulas
+  ];
   
-  if (matches && matches.length > 0) {
-    return matches[0].trim();
+  for (const pattern of patterns) {
+    const matches = response.match(pattern);
+    if (matches && matches.length > 0) {
+      let formula = matches[0];
+      
+      // Clean up the formula
+      formula = formula.replace(/^(?:Formula|formula):\s*/i, '');
+      formula = formula.replace(/```/g, '');
+      formula = formula.replace(/`/g, '');
+      formula = formula.trim();
+      
+      // Ensure it starts with =
+      if (formula.startsWith('=')) {
+        return formula;
+      }
+    }
+  }
+  
+  // If no pattern matches, check if the entire response is just a formula
+  const cleanResponse = response.trim();
+  if (cleanResponse.startsWith('=') && !cleanResponse.includes('\n')) {
+    return cleanResponse;
   }
   
   return null;
 }
 
 function findTargetCell(selectedRange) {
-  // Find the next available cell to the right of the selection
   const sheet = selectedRange.getSheet();
   const lastCol = selectedRange.getLastColumn();
+  const lastRow = selectedRange.getLastRow();
   const firstRow = selectedRange.getRow();
   
-  // Use the cell immediately to the right of the selection
-  const targetCol = lastCol + 1;
+  // Strategy 1: Try cell to the right of the selection
+  let targetCol = lastCol + 1;
+  let targetRow = firstRow;
   
-  return sheet.getRange(firstRow, targetCol).getA1Notation();
+  // Strategy 2: If we're dealing with a data table, place below the selection
+  if (selectedRange.getNumRows() > 1 && selectedRange.getNumColumns() > 1) {
+    targetRow = lastRow + 1;
+    targetCol = selectedRange.getColumn();
+  }
+  
+  // Strategy 3: For single row selections, place to the right
+  if (selectedRange.getNumRows() === 1) {
+    targetRow = firstRow;
+    targetCol = lastCol + 1;
+  }
+  
+  // Ensure we don't go beyond reasonable bounds
+  const maxCols = sheet.getMaxColumns();
+  const maxRows = sheet.getMaxRows();
+  
+  if (targetCol > maxCols) {
+    targetCol = maxCols;
+  }
+  if (targetRow > maxRows) {
+    targetRow = maxRows;
+  }
+  
+  return sheet.getRange(targetRow, targetCol).getA1Notation();
+}
+
+// Helper function for testing and debugging
+function previewFormulaGeneration(promptText) {
+  try {
+    const range = SpreadsheetApp.getActiveRange();
+    if (!range) {
+      return { error: "No range selected for context" };
+    }
+    
+    const values = range.getValues();
+    const analysis = analyzeSelectedData();
+    const contextualPrompt = createContextualPrompt(promptText, analysis, values);
+    const targetCell = findTargetCell(range);
+    
+    return {
+      userPrompt: promptText,
+      dataAnalysis: analysis,
+      contextualPrompt: contextualPrompt,
+      targetCell: targetCell,
+      sampleData: values.slice(0, 3)
+    };
+  } catch (error) {
+    return { error: error.toString() };
+  }
 }
 
 // Helper function for data type detection
